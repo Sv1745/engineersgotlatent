@@ -46,7 +46,7 @@ logger = logging.getLogger("scanner")
 def load_environment():
     """
     Find and load .env file from working directory, script directory,
-    or project parent directories.
+    or project parent directories. Prioritizes .env over .env.example.
     """
     search_dirs = [
         Path.cwd(),
@@ -54,15 +54,20 @@ def load_environment():
         Path(__file__).resolve().parent.parent,
         Path(__file__).resolve().parent.parent.parent,
     ]
+    # First pass: look strictly for .env with actual credentials
     for d in search_dirs:
         env_file = d / ".env"
         if env_file.is_file():
-            load_dotenv(dotenv_path=env_file)
+            load_dotenv(dotenv_path=env_file, override=True)
             logger.debug("Loaded environment variables from %s", env_file)
             return
+
+    # Second pass: fallback to .env.example if no .env exists
+    for d in search_dirs:
         env_example = d / ".env.example"
         if env_example.is_file():
             load_dotenv(dotenv_path=env_example)
+            return
 
 
 def parse_tags(tags_list: Optional[List[Dict[str, str]]]) -> Dict[str, str]:

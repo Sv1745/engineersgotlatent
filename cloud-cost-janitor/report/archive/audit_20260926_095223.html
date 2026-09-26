@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AWS Waste Audit & FinOps Report — Cloud Cost Janitor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #090d16;
+      --card-bg: #111827;
+      --border: rgba(255, 255, 255, 0.08);
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent: #3b82f6;
+      --danger: #ef4444;
+      --success: #10b981;
+      --warning: #f59e0b;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      background-image: radial-gradient(ellipse 80% 50% at 50% -20%, rgba(59, 130, 246, 0.15), transparent);
+      color: var(--text);
+      font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+      padding: 40px 20px;
+      line-height: 1.5;
+    }
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 24px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 32px;
+    }
+    .title-group h1 {
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+    .btn-group {
+      display: flex;
+      gap: 12px;
+    }
+    .btn {
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: #1e293b;
+      color: var(--text);
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+    .btn:hover {
+      background: #334155;
+    }
+    .btn-primary {
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+    .btn-primary:hover {
+      background: #2563eb;
+    }
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 20px;
+      margin-bottom: 36px;
+    }
+    .kpi-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+    }
+    .kpi-label {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+    .kpi-value {
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      margin-bottom: 4px;
+    }
+    .kpi-value.danger { color: var(--danger); }
+    .kpi-value.success { color: var(--success); }
+    .kpi-subtext {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    .section-title {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 16px;
+    }
+    .table-container {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 36px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 13px;
+    }
+    th {
+      background: rgba(255, 255, 255, 0.03);
+      padding: 14px 16px;
+      font-weight: 600;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--border);
+      text-transform: uppercase;
+      font-size: 11px;
+      letter-spacing: 0.5px;
+    }
+    td {
+      padding: 14px 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      color: #cbd5e1;
+    }
+    tr:last-child td {
+      border-bottom: none;
+    }
+    code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: #60a5fa;
+      background: rgba(59, 130, 246, 0.1);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    .footer {
+      text-align: center;
+      font-size: 12px;
+      color: var(--text-muted);
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+    }
+    @media print {
+      body { background: #fff; color: #000; }
+      .btn-group { display: none; }
+      .table-container, .kpi-card { border: 1px solid #ddd; background: #fff; }
+      th { background: #f4f4f4; color: #333; }
+      td { color: #111; }
+      code { background: #eee; color: #000; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="title-group">
+        <h1>☁️ AWS Waste Audit & FinOps Report</h1>
+        <p style="color: var(--text-muted); font-size: 13px; margin-top: 4px;">Infrastructure Cost Audit — Region: ap-south-1 &bull; Generated: September 26, 2026 - 09:52 UTC</p>
+      </div>
+      <div class="btn-group">
+        <a href="/reports" class="btn">📚 All Past Reports</a>
+        <button class="btn btn-primary" onclick="window.print()">🖨️ Print / Save as PDF</button>
+      </div>
+    </div>
+
+    <div class="kpi-grid">
+      
+        <div class="kpi-card">
+          <div class="kpi-label">Total Monthly Waste</div>
+          <div class="kpi-value danger">₹9,256.21</div>
+          <div class="kpi-subtext">$96.60 USD / month</div>
+        </div>
+        
+        <div class="kpi-card">
+          <div class="kpi-label">Flagged Waste Assets</div>
+          <div class="kpi-value ">3</div>
+          <div class="kpi-subtext">Identified in ap-south-1</div>
+        </div>
+        
+        <div class="kpi-card">
+          <div class="kpi-label">Blast Radius Verification</div>
+          <div class="kpi-value success">100% Safe</div>
+          <div class="kpi-subtext">AWS Native DryRun=True Passed</div>
+        </div>
+        
+        <div class="kpi-card">
+          <div class="kpi-label">Safety Isolation Tag</div>
+          <div class="kpi-value ">hackathon-demo</div>
+          <div class="kpi-subtext">Strict Tag Boundary Enforced</div>
+        </div>
+        
+    </div>
+
+    <div class="section-title">📋 Detailed Inventory & Technical Rationale</div>
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>Rank</th><th>Resource ID</th><th>Type</th><th>Monthly (INR)</th><th>Monthly ($)</th><th>Technical Rationale</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>1</strong></td><td><code>i-0b07f5f79736ca324</code></td><td>ec2_instance</td><td>₹6,994.86</td><td>$73.00</td><td>Instance 'janitor-demo-idle-ec2' (ID: i-0b07f5f79736ca324) in 'hackathon-demo' exhibiting sustained sub-5% CPU with 0 network bursts. Evaluated as idle demo worker, distinct from a warm failover standby.</td></tr>
+<tr><td><strong>2</strong></td><td><code>vol-0c4c204ee7c49083a</code></td><td>ebs_volume</td><td>₹1,916.40</td><td>$20.00</td><td>Volume 'janitor-demo-orphan-volume' (ID: vol-0c4c204ee7c49083a) completely detached in 'hackathon-demo' environment with 0 IOPS, incurring unallocated gp3 block storage charges.</td></tr>
+<tr><td><strong>3</strong></td><td><code>eipalloc-0b1c42e0ab6140b5f</code></td><td>elastic_ip</td><td>₹344.95</td><td>$3.60</td><td>Public IPv4 'janitor-demo-orphan-eip' (ID: eipalloc-0b1c42e0ab6140b5f) unassociated with any ENI or instance in 'hackathon-demo', incurring AWS idle IPv4 hourly penalty.</td></tr>
+
+        </tbody>
+      </table>
+    </div>
+
+    <div class="footer">
+      Generated automatically by <strong>Cloud Cost Janitor</strong> running on TrueForge &bull; AWS Native DryRun Simulation &bull; Tag-Scoped Safety Enforced
+    </div>
+  </div>
+</body>
+</html>

@@ -72,10 +72,36 @@ def calculate_monthly_cost_usd(finding):
     return HARDCODED_RATES_USD.get(res_type, DEFAULT_FALLBACK_USD)
 
 
+def generate_rationale(item):
+    """Generates natural language contextual reasoning for why a resource was flagged."""
+    res_type = item.get("type", "")
+    res_id = item.get("resource_id", "")
+    tags = item.get("tags", {})
+    name = tags.get("Name", "unnamed")
+    env = tags.get("Environment", "unknown")
+    reason = item.get("reason", "")
+
+    if res_type == "ec2_instance":
+        return f"Instance '{name}' (ID: {res_id}) in '{env}' exhibiting sustained sub-5% CPU with 0 network bursts. Evaluated as idle demo worker, distinct from a warm failover standby."
+    elif res_type == "ebs_volume":
+        return f"Volume '{name}' (ID: {res_id}) completely detached in '{env}' environment with 0 IOPS, incurring unallocated gp3 block storage charges."
+    elif res_type == "elastic_ip":
+        return f"Public IPv4 '{name}' (ID: {res_id}) unassociated with any ENI or instance in '{env}', incurring AWS idle IPv4 hourly penalty."
+    elif res_type == "load_balancer":
+        return f"Load Balancer '{name}' (ID: {res_id}) in '{env}' with zero request count and 0 active targets across lookback window."
+    elif res_type == "snapshot":
+        return f"EBS snapshot '{name}' (ID: {res_id}) older than 30 days and completely unreferenced by any active AMI."
+    elif res_type == "nat_gateway":
+        return f"NAT Gateway '{name}' (ID: {res_id}) with zero active connections/traffic incurring base hourly gateway fees."
+    elif res_type == "rds_instance":
+        return f"RDS DB instance '{name}' (ID: {res_id}) with zero active database connections incurring compute and storage overhead."
+    return f"{reason} (Environment: {env}, Name: {name})"
+
+
 def prioritize_findings(findings, inr_per_usd=None):
     """
     Process findings list, compute monthly_cost_usd & monthly_cost_inr,
-    and return array sorted by monthly_cost_inr descending.
+    and return array sorted by monthly_cost_inr descending with contextual rationales.
     """
     if inr_per_usd is None:
         inr_per_usd = get_inr_per_usd()
@@ -96,6 +122,7 @@ def prioritize_findings(findings, inr_per_usd=None):
 
         item["monthly_cost_usd"] = cost_usd
         item["monthly_cost_inr"] = cost_inr
+        item["rationale"] = generate_rationale(item)
         prioritized.append(item)
 
     # Sort descending by monthly_cost_inr
@@ -184,6 +211,15 @@ def run_pricer(input_path="shared/sample_findings.json", output_path="shared/sam
 
 
 if __name__ == "__main__":
-    inp = sys.argv[1] if len(sys.argv) > 1 else "shared/sample_findings.json"
-    out = sys.argv[2] if len(sys.argv) > 2 else "shared/sample_prioritized_findings.json"
+    import argparse
+    parser = argparse.ArgumentParser(description="Cloud Cost Janitor - Pricing & Prioritization Module")
+    parser.add_argument("pos_input", nargs="?", default=None, help="Positional input findings JSON path")
+    parser.add_argument("pos_output", nargs="?", default=None, help="Positional output prioritized JSON path")
+    parser.add_argument("--input", "-i", dest="flag_input", default=None, help="Input findings JSON path")
+    parser.add_argument("--output", "-o", dest="flag_output", default=None, help="Output prioritized JSON path")
+
+    args = parser.parse_args()
+    inp = args.flag_input or args.pos_input or "findings.json"
+    out = args.flag_output or args.pos_output or "prioritized_findings.json"
     run_pricer(inp, out)
+

@@ -24,7 +24,7 @@ except ImportError:
 
 def load_env_vars():
     """Parse .env or .env.example into os.environ if not present."""
-    search_dirs = [Path.cwd(), Path(__file__).resolve().parent.parent]
+    search_dirs = [Path.cwd(), Path(__file__).resolve().parent.parent, Path(__file__).resolve().parent]
     for directory in search_dirs:
         for env_filename in [".env", ".env.example"]:
             env_path = directory / env_filename
@@ -38,6 +38,10 @@ def load_env_vars():
                             val = val.strip().strip("'\"")
                             if key and key not in os.environ:
                                 os.environ[key] = val
+
+# Ensure env vars are loaded upon module import
+load_env_vars()
+
 
 
 def verify_safety_tags(resource_id, tags=None):
@@ -73,11 +77,42 @@ def _validate_execution_flags(resource_id, dry_run, confirmed):
         )
 
 
+def fetch_resource_tags(resource_id, resource_type, region="ap-south-1"):
+    """
+    Fetches live tags from AWS for a given resource if not provided.
+    """
+    if not HAS_BOTO3:
+        return {}
+    try:
+        client = boto3.client("ec2", region_name=region)
+        if resource_type in ["ec2_instance", "instance"] or resource_id.startswith("i-"):
+            res = client.describe_instances(InstanceIds=[resource_id])
+            tags_list = res["Reservations"][0]["Instances"][0].get("Tags", [])
+            return {t["Key"]: t["Value"] for t in tags_list}
+        elif resource_type in ["ebs_volume", "volume"] or resource_id.startswith("vol-"):
+            res = client.describe_volumes(VolumeIds=[resource_id])
+            tags_list = res["Volumes"][0].get("Tags", [])
+            return {t["Key"]: t["Value"] for t in tags_list}
+        elif resource_type in ["elastic_ip", "eip"] or resource_id.startswith("eipalloc-"):
+            res = client.describe_addresses(AllocationIds=[resource_id])
+            tags_list = res["Addresses"][0].get("Tags", [])
+            return {t["Key"]: t["Value"] for t in tags_list}
+        elif resource_type in ["snapshot", "ebs_snapshot"] or resource_id.startswith("snap-"):
+            res = client.describe_snapshots(SnapshotIds=[resource_id])
+            tags_list = res["Snapshots"][0].get("Tags", [])
+            return {t["Key"]: t["Value"] for t in tags_list}
+    except Exception as e:
+        print(f"[Tag Fetch Warning] Could not fetch tags for {resource_id}: {e}")
+    return {}
+
+
 def delete_ebs_volume(resource_id, tags=None, dry_run=True, confirmed=False, region="ap-south-1"):
     """
     Delete an unattached EBS volume.
     Defaults to dry_run=True. Requires tag validation and confirmed=True for real action.
     """
+    if not tags:
+        tags = fetch_resource_tags(resource_id, "ebs_volume", region)
     verify_safety_tags(resource_id, tags)
     _validate_execution_flags(resource_id, dry_run, confirmed)
 
@@ -88,7 +123,7 @@ def delete_ebs_volume(resource_id, tags=None, dry_run=True, confirmed=False, reg
         try:
             client = boto3.client("ec2", region_name=region)
             response = client.delete_volume(VolumeId=resource_id, DryRun=dry_run)
-            return {"status": "success", "dry_run": dry_run, "confirmed": confirmed, "response": response}
+            return {"status": "success", "dry_run": dry_run, "confirmed": confirmed, "resource_id": resource_id, "response": response}
         except ClientError as e:
             if e.response.get("Error", {}).get("Code") == "DryRunOperation":
                 print(f"[AWS DryRun Success] Volume {resource_id} delete_volume DryRun passed.")
@@ -112,6 +147,8 @@ def release_eip(resource_id, tags=None, dry_run=True, confirmed=False, region="a
     Release an unassociated Elastic IP.
     Defaults to dry_run=True. Requires tag validation and confirmed=True for real action.
     """
+    if not tags:
+        tags = fetch_resource_tags(resource_id, "elastic_ip", region)
     verify_safety_tags(resource_id, tags)
     _validate_execution_flags(resource_id, dry_run, confirmed)
 
@@ -125,7 +162,7 @@ def release_eip(resource_id, tags=None, dry_run=True, confirmed=False, region="a
                 response = client.release_address(AllocationId=resource_id, DryRun=dry_run)
             else:
                 response = client.release_address(PublicIp=resource_id, DryRun=dry_run)
-            return {"status": "success", "dry_run": dry_run, "confirmed": confirmed, "response": response}
+            return {"status": "success", "dry_run": dry_run, "confirmed": confirmed, "resource_id": resource_id, "response": response}
         except ClientError as e:
             if e.response.get("Error", {}).get("Code") == "DryRunOperation":
                 print(f"[AWS DryRun Success] EIP {resource_id} release_address DryRun passed.")
@@ -149,6 +186,8 @@ def stop_ec2_instance(resource_id, tags=None, dry_run=True, confirmed=False, reg
     Stop an idle EC2 instance.
     Defaults to dry_run=True. Requires tag validation and confirmed=True for real action.
     """
+    if not tags:
+        tags = fetch_resource_tags(resource_id, "ec2_instance", region)
     verify_safety_tags(resource_id, tags)
     _validate_execution_flags(resource_id, dry_run, confirmed)
 
@@ -159,7 +198,7 @@ def stop_ec2_instance(resource_id, tags=None, dry_run=True, confirmed=False, reg
         try:
             client = boto3.client("ec2", region_name=region)
             response = client.stop_instances(InstanceIds=[resource_id], DryRun=dry_run)
-            return {"status": "success", "dry_run": dry_run, "confirmed": confirmed, "response": response}
+            return {"status": "success", "dry_run": dry_run, "confirmed": confirmed, "resource_id": resource_id, "response": response}
         except ClientError as e:
             if e.response.get("Error", {}).get("Code") == "DryRunOperation":
                 print(f"[AWS DryRun Success] Instance {resource_id} stop_instances DryRun passed.")
@@ -183,6 +222,8 @@ def delete_snapshot(resource_id, tags=None, dry_run=True, confirmed=False, regio
     Delete an orphaned EBS snapshot.
     Defaults to dry_run=True. Requires tag validation and confirmed=True for real action.
     """
+    if not tags:
+        tags = fetch_resource_tags(resource_id, "snapshot", region)
     verify_safety_tags(resource_id, tags)
     _validate_execution_flags(resource_id, dry_run, confirmed)
 
@@ -193,7 +234,7 @@ def delete_snapshot(resource_id, tags=None, dry_run=True, confirmed=False, regio
         try:
             client = boto3.client("ec2", region_name=region)
             response = client.delete_snapshot(SnapshotId=resource_id, DryRun=dry_run)
-            return {"status": "success", "dry_run": dry_run, "confirmed": confirmed, "response": response}
+            return {"status": "success", "dry_run": dry_run, "confirmed": confirmed, "resource_id": resource_id, "response": response}
         except ClientError as e:
             if e.response.get("Error", {}).get("Code") == "DryRunOperation":
                 print(f"[AWS DryRun Success] Snapshot {resource_id} delete_snapshot DryRun passed.")
@@ -210,3 +251,88 @@ def delete_snapshot(resource_id, tags=None, dry_run=True, confirmed=False, regio
         "dry_run": dry_run,
         "confirmed": confirmed
     }
+
+
+def terminate_ec2_instance(resource_id, tags=None, dry_run=True, confirmed=False, region="ap-south-1"):
+    """
+    Terminate an EC2 instance.
+    Defaults to dry_run=True. Requires tag validation and confirmed=True for real action.
+    """
+    if not tags:
+        tags = fetch_resource_tags(resource_id, "ec2_instance", region)
+    verify_safety_tags(resource_id, tags)
+    _validate_execution_flags(resource_id, dry_run, confirmed)
+
+    action_desc = "DRY RUN Terminate EC2 Instance" if dry_run else "REAL Teardown Terminate EC2 Instance"
+    print(f"[{action_desc}] Target: {resource_id} (Region: {region})")
+
+    if HAS_BOTO3:
+        try:
+            client = boto3.client("ec2", region_name=region)
+            response = client.terminate_instances(InstanceIds=[resource_id], DryRun=dry_run)
+            return {"status": "success", "dry_run": dry_run, "confirmed": confirmed, "resource_id": resource_id, "response": response}
+        except ClientError as e:
+            if e.response.get("Error", {}).get("Code") == "DryRunOperation":
+                print(f"[AWS DryRun Success] Instance {resource_id} terminate_instances DryRun passed.")
+                return {"status": "dry_run_success", "dry_run": True, "resource_id": resource_id}
+            print(f"[AWS API Response/Error] {e}")
+            return {"status": "api_error", "error": str(e), "dry_run": dry_run, "confirmed": confirmed}
+        except Exception as e:
+            print(f"[AWS Connection Warning] {e}. Falling back to simulation mode.")
+
+    return {
+        "status": "simulated_success",
+        "action": "terminate_ec2_instance",
+        "resource_id": resource_id,
+        "dry_run": dry_run,
+        "confirmed": confirmed
+    }
+
+
+def execute_teardown(resource_id, resource_type, tags=None, dry_run=True, confirmed=False, region="ap-south-1"):
+    """
+    Dispatches to appropriate teardown function based on resource type.
+    """
+    r_type = (resource_type or "").lower().replace("-", "_").strip()
+    if "ebs" in r_type or "volume" in r_type or resource_id.startswith("vol-"):
+        return delete_ebs_volume(resource_id, tags=tags, dry_run=dry_run, confirmed=confirmed, region=region)
+    elif "eip" in r_type or "elastic_ip" in r_type or resource_id.startswith("eipalloc-"):
+        return release_eip(resource_id, tags=tags, dry_run=dry_run, confirmed=confirmed, region=region)
+    elif "ec2" in r_type or "instance" in r_type or resource_id.startswith("i-"):
+        return terminate_ec2_instance(resource_id, tags=tags, dry_run=dry_run, confirmed=confirmed, region=region)
+    elif "snap" in r_type or resource_id.startswith("snap-"):
+        return delete_snapshot(resource_id, tags=tags, dry_run=dry_run, confirmed=confirmed, region=region)
+    else:
+        raise ValueError(f"Unsupported resource type: '{resource_type}' for resource ID '{resource_id}'")
+
+
+
+if __name__ == "__main__":
+    import argparse
+    import json
+
+    parser = argparse.ArgumentParser(description="Cloud Cost Janitor Teardown CLI")
+    parser.add_argument("--resource-id", required=True, help="AWS Resource ID")
+    parser.add_argument("--type", required=True, help="Resource Type (ec2_instance, ebs_volume, elastic_ip, snapshot)")
+    parser.add_argument("--dry-run", action="store_true", default=False, help="Perform dry run")
+    parser.add_argument("--confirmed", action="store_true", default=False, help="Confirm real teardown")
+    parser.add_argument("--region", default="ap-south-1", help="AWS Region (default: ap-south-1)")
+
+    args = parser.parse_args()
+    dry_run = args.dry_run
+    if not dry_run and not args.confirmed:
+        dry_run = True
+
+    try:
+        res = execute_teardown(
+            resource_id=args.resource_id,
+            resource_type=args.type,
+            dry_run=dry_run,
+            confirmed=args.confirmed,
+            region=args.region,
+        )
+        print(json.dumps(res, indent=2, default=str))
+    except Exception as exc:
+        print(f"[TEARDOWN ERROR]: {exc}", file=sys.stderr)
+        sys.exit(1)
+
