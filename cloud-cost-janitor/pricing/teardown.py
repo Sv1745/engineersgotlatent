@@ -94,7 +94,7 @@ def delete_ebs_volume(resource_id, tags=None, dry_run=True, confirmed=False, reg
                 print(f"[AWS DryRun Success] Volume {resource_id} delete_volume DryRun passed.")
                 return {"status": "dry_run_success", "dry_run": True, "resource_id": resource_id}
             print(f"[AWS API Response/Error] {e}")
-            return {"status": "api_error", "error": str(e), "dry_run": dry_run}
+            return {"status": "api_error", "error": str(e), "dry_run": dry_run, "confirmed": confirmed}
         except Exception as e:
             print(f"[AWS Connection Warning] {e}. Falling back to simulation mode.")
 
@@ -131,7 +131,7 @@ def release_eip(resource_id, tags=None, dry_run=True, confirmed=False, region="a
                 print(f"[AWS DryRun Success] EIP {resource_id} release_address DryRun passed.")
                 return {"status": "dry_run_success", "dry_run": True, "resource_id": resource_id}
             print(f"[AWS API Response/Error] {e}")
-            return {"status": "api_error", "error": str(e), "dry_run": dry_run}
+            return {"status": "api_error", "error": str(e), "dry_run": dry_run, "confirmed": confirmed}
         except Exception as e:
             print(f"[AWS Connection Warning] {e}. Falling back to simulation mode.")
 
@@ -165,7 +165,7 @@ def stop_ec2_instance(resource_id, tags=None, dry_run=True, confirmed=False, reg
                 print(f"[AWS DryRun Success] Instance {resource_id} stop_instances DryRun passed.")
                 return {"status": "dry_run_success", "dry_run": True, "resource_id": resource_id}
             print(f"[AWS API Response/Error] {e}")
-            return {"status": "api_error", "error": str(e), "dry_run": dry_run}
+            return {"status": "api_error", "error": str(e), "dry_run": dry_run, "confirmed": confirmed}
         except Exception as e:
             print(f"[AWS Connection Warning] {e}. Falling back to simulation mode.")
 
@@ -199,7 +199,7 @@ def delete_snapshot(resource_id, tags=None, dry_run=True, confirmed=False, regio
                 print(f"[AWS DryRun Success] Snapshot {resource_id} delete_snapshot DryRun passed.")
                 return {"status": "dry_run_success", "dry_run": True, "resource_id": resource_id}
             print(f"[AWS API Response/Error] {e}")
-            return {"status": "api_error", "error": str(e), "dry_run": dry_run}
+            return {"status": "api_error", "error": str(e), "dry_run": dry_run, "confirmed": confirmed}
         except Exception as e:
             print(f"[AWS Connection Warning] {e}. Falling back to simulation mode.")
 

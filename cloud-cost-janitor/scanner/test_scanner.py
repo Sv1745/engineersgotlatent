@@ -9,7 +9,19 @@ import unittest
 from unittest.mock import MagicMock, patch
 from botocore.exceptions import ClientError
 
-from scanner.scanner import CloudWasteScanner, scan, parse_tags, format_iso_date
+from pathlib import Path
+import sys
+
+# Ensure module is discoverable
+for p in [Path(__file__).resolve().parent, Path(__file__).resolve().parent.parent]:
+    if str(p) not in sys.path:
+        sys.path.insert(0, str(p))
+
+try:
+    from scanner.scanner import CloudWasteScanner, scan, parse_tags, format_iso_date
+except ImportError:
+    from scanner import CloudWasteScanner, scan, parse_tags, format_iso_date
+
 
 
 class TestCloudWasteScanner(unittest.TestCase):

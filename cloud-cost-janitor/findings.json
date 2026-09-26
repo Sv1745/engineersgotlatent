@@ -1,0 +1,35 @@
+[
+  {
+    "resource_id": "vol-0e9c691ddc6a1d8a8",
+    "type": "ebs_volume",
+    "region": "ap-south-1",
+    "reason": "Unattached EBS Volume (State: available, Size: 4 GiB, Type: gp3)",
+    "created_date": "2026-09-26T05:43:41Z",
+    "tags": {
+      "Environment": "hackathon-demo",
+      "Name": "janitor-demo-orphan-volume"
+    }
+  },
+  {
+    "resource_id": "eipalloc-0eba44bd44daf23d8",
+    "type": "elastic_ip",
+    "region": "ap-south-1",
+    "reason": "Unassociated Elastic IP incurring idle charges (13.235.47.189)",
+    "created_date": "2026-09-26T07:14:06Z",
+    "tags": {
+      "Name": "janitor-demo-orphan-eip",
+      "Environment": "hackathon-demo"
+    }
+  },
+  {
+    "resource_id": "i-0bb1d7b1f76899ebb",
+    "type": "ec2_instance",
+    "region": "ap-south-1",
+    "reason": "EC2 instance with low average CPU utilization (0.22% < 5.0%)",
+    "created_date": "2026-09-26T05:44:07Z",
+    "tags": {
+      "Name": "janitor-demo-idle-ec2",
+      "Environment": "hackathon-demo"
+    }
+  }
+]
